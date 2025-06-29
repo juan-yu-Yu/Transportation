@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交通工具展示</title>
+    <style>
+        *{
+            box-sizing: border-box;
+        }
+        body{
+            margin: 0;
+        }
+        #material-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px 16px;
+            border-radius: 8px;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.2);
+            z-index: 1001;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        #material-controls button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            background-color: #eee;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+
+        #material-controls button:hover {
+            background-color: #ddd;
+        }
+    </style>
+    <script type="importmap">
+        {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/"
+        }
+        }
+    </script>
+</head>
+
+<body>
+    <!-- Canvas 容器 -->
+    <div id="canvas-container"></div>
+
+    <!-- 控制按鈕區 -->
+    <div id="material-controls">
+        <button id="toggle-spin">停止旋轉</button>
+        <button data-material="default">原始材質</button>
+        <button data-material="red">紅色金屬</button>
+        <button data-material="blue">藍色亮光</button>
+        <button data-material="black">消光黑</button>
+        <button data-material="white">亮面白</button>
+        <button data-material="armygreen">軍綠色</button>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xfff8dc); // 溫柔燈光黃
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 1.5, 4);
+        camera.lookAt(5, 5, 5);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enablePan = false;
+        controls.target.set(0, 0, 0); // 中心點
+        controls.update();
+
+        scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(5, 10, 7.5);
+        scene.add(dirLight);
+
+        const loader = new GLTFLoader();
+        const modelGroup = new THREE.Group();
+        scene.add(modelGroup);
+
+        let originalMaterials = {};
+
+        // ✅ 使用你的 glb 模型
+        loader.load('./Model/飛機Threejs1.glb', gltf => {
+            const model = gltf.scene;
+            model.scale.set(0.3, 0.3, 0.3);
+            model.position.set(0, -3, 0); // 中心位置
+            modelGroup.add(model);
+
+            model.traverse(obj => {
+                if (obj.isMesh) {
+                    originalMaterials[obj.uuid] = obj.material;
+                }
+            });
+
+            controls.target.set(0, 0, 0); // 確保旋轉圍繞模型
+            controls.update();
+            camera.lookAt(0, 0, 0);
+        }, undefined, err => console.error('模型載入錯誤:', err));
+
+        // 材質選擇
+        const materials = {
+            red: new THREE.MeshStandardMaterial({ color: 0xff3333, metalness: 0.8, roughness: 0.2 }),
+            blue: new THREE.MeshStandardMaterial({ color: 0x3399ff, metalness: 0.6, roughness: 0.3 }),
+            silver: new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 1.0, roughness: 0.1 }),
+            black: new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.3, roughness: 0.7 }),
+            white: new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.2, roughness: 0.05 }),
+            armygreen: new THREE.MeshStandardMaterial({ color: 0x556b2f, metalness: 0.4, roughness: 0.6 })
+        };
+
+        document.querySelectorAll('#material-controls button[data-material]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const sel = btn.getAttribute('data-material');
+                modelGroup.traverse(obj => {
+                    if (obj.isMesh) {
+                        obj.material = (sel === 'default') ? originalMaterials[obj.uuid] : materials[sel];
+                    }
+                });
+            });
+        });
+
+        let spinning = true;
+        document.getElementById('toggle-spin').addEventListener('click', () => {
+            spinning = !spinning;
+            document.getElementById('toggle-spin').textContent = spinning ? '停止旋轉' : '啟動旋轉';
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (spinning) modelGroup.rotation.y += 0.005;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+
+</body>
+
+</html>
